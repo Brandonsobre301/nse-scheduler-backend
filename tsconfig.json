@@ -7,5 +7,11 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true
+  },
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit"
   }
 }
