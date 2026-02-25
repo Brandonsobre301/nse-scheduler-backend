@@ -37,19 +37,38 @@ router.get('/:id', auth, async (req: AuthRequest & {params: { id: string}}, res:
 // @route   PUT /projects/:id
 // @desc    Update a project's details (eg. calculator values)
 // @access  Private
-router.put('/:id', auth, async (req: AuthRequest& { params: { id: string } }, res: Response) => {
+router.put('/:id', auth, async (req: AuthRequest & { params: { id: string } }, res: Response) => {
     try {
+        const { id } = req.params;
+        
+        // Validate ObjectId format
+        if (!id || id === 'undefined' || !id.match(/^[0-9a-fA-F]{24}$/)) {
+            return res.status(400).json({ msg: 'Invalid project ID format' });
+        }
+
+        console.log('Updating project ID:', id);
+        console.log('Update data:', req.body);
+
         const updatedProject = await ProjectModel.findByIdAndUpdate(
-            req.params.id,
+            id,
             req.body,
-            { new: true }
-        ).exec();
+            { new: true, runValidators: true }
+        ).lean().exec(); // Add .lean() for plain JS object
+
         if (!updatedProject) {
             return res.status(404).json({ msg: 'Project not found' });
         }
-        res.json(updatedProject);
+
+        // Ensure _id is included as string
+        const response = {
+            ...updatedProject,
+            _id: updatedProject._id.toString()
+        };
+
+        console.log('Returning project with _id:', response._id);
+        res.json(response);
     } catch (err) {
-        console.error(err);
+        console.error('Update error:', err);
         res.status(400).json({ msg: 'Error updating project' });
     }
 });
@@ -61,7 +80,7 @@ router.post('/:id/phases', auth, async (req, res)=> {
     try {
         const project = await ProjectModel.findById(req.params.id).exec();
         if (!project) {
-            return res.status(404).json({ msg: "Project not Found" });
+            return res.status(404).json({ msg: "404 Project not Found" });
         }
 
 // New Phase Object
@@ -80,12 +99,12 @@ router.post('/:id/phases', auth, async (req, res)=> {
 // Permanently save the changes to the database using 'save()' after modifying the 'project' object in memory
          await project.save();
 
-// Send a success msg as well as the entire updatted project back to the front end
+// Send a success msg as well as the entire updated project back to the front end
 
         res.json(project);
     } catch (err: any) {
         console.error(err.message);
-        res.status(500).send('Server Error');
+        res.status(500).send('500 Server Error');
     }
 
 

@@ -1,4 +1,3 @@
-
 import { Schema, model, Types, HydratedDocument} from 'mongoose';
 
 
@@ -26,7 +25,7 @@ export interface Phase {
 }
 
 export interface Project {
-
+    _id?: string; // Add this line - Mongoose ObjectId as string
     name: string;
     projectNumber: string;
     manager: string;
@@ -44,7 +43,7 @@ export interface Project {
     targetDurationWeeks?: number;
 
     createdAt?: Date;
-    UpdatedAt?: Date;
+    updatedAt?: Date; // Fix: was "UpdatedAt"
 }
 
 export type ProjectDocument = HydratedDocument<Project>;
@@ -72,7 +71,7 @@ const PhaseSchema = new Schema<Phase>(
         assignees: { type: [String], default: [] },
         milestones: {
             type: [{ name: String, date: Date}],
-            ddefault: [],
+            default: [], // Fix: was "ddefault"
         },
     },
     { _id: true }

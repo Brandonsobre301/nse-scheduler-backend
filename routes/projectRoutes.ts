@@ -1,172 +1,188 @@
-import express, { Request, Response } from 'express';
-import ProjectModel, { ProjectDocument } from '../models/Project';
+import express, { Request, Response, NextFunction } from 'express';
+import auth, { AuthRequest } from "../middleware/auth";
+// lightweight requireRole middleware implemented inline to avoid missing module
+const requireRole = (...roles: string[]) => {
+    return (req: AuthRequest, res: Response, next: NextFunction) => {
+        // If auth middleware did not attach a user, deny access
+        if (!req.user || !('role' in req.user)) {
+            return res.status(403).json({ msg: 'Access denied' });
+        }
+        const userRole = (req.user as any).role;
+        if (!roles.includes(userRole)) {
+            return res.status(403).json({ msg: 'Access denied' });
+        }
+        next();
+    };
+};
+import ProjectModel, { Project } from '../models/Project';
 
 const router = express.Router();
 
-// Get all projects
-router.get('/', async (req: Request, res: Response) => {
-  try {
-    const projects = await ProjectModel.find().sort({ createdAt: -1 });
-    res.json(projects);
-  } catch (error) {
-    console.error('Error fetching projects:', error);
-    res.status(500).json({ error: 'Error fetching projects' });
-  }
-});
-
-// Get single project by ID
-router.get('/:id', async (req: Request, res: Response) => {
-  try {
-    const project = await ProjectModel.findById(req.params.id);
-    if (!project) {
-      return res.status(404).json({ error: 'Project not found' });
+// @route   GET /projects
+// @desc    Get all projects (anyone authenticated can view)
+// @access  Private
+router.get('/', auth, async (req: AuthRequest, res: Response) => {
+    try {
+        const projects = await ProjectModel.find().lean().exec();
+        res.json(projects);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Server Error');
     }
-    res.json(project);
-  } catch (error) {
-    console.error('Error fetching project:', error);
-    res.status(500).json({ error: 'Error fetching project' });
-  }
 });
 
-// Create new project
-router.post('/', async (req: Request, res: Response) => {
-  try {
-    const { name, manager, status, progress, deadline, team, scope, phases } = req.body;
-
-    const project = new ProjectModel({
-      name,
-      manager,
-      status: status || 'Planning',
-      progress: progress || 0,
-      deadline,
-      team: team || [],
-      scope: scope || '',
-      phases: phases || [],
-    });
-
-    await project.save();
-    res.status(201).json({
-      message: 'Project created successfully',
-      project,
-    });
-  } catch (error) {
-    console.error('Error creating project:', error);
-    res.status(500).json({ error: 'Error creating project' });
-  }
-});
-
-// Update project
-router.put('/:id', async (req: Request, res: Response) => {
-  try {
-    const project = await ProjectModel.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    );
-
-    if (!project) {
-      return res.status(404).json({ error: 'Project not found' });
+// @route   GET /projects/:id
+// @desc    Get a project by ID (anyone authenticated can view)
+// @access  Private
+router.get('/:id', auth, async (req: AuthRequest & {params: { id: string}}, res: Response) => {
+    try {
+        const project = await ProjectModel.findById(req.params.id).exec();
+        if (!project) {
+            return res.status(404).json({ msg: 'Project not found' });
+        }
+        res.json(project);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Server Error');
     }
-
-    res.json({
-      message: 'Project updated successfully',
-      project,
-    });
-  } catch (error) {
-    console.error('Error updating project:', error);
-    res.status(500).json({ error: 'Error updating project' });
-  }
 });
 
-// Update project progress
-router.patch('/:id/progress', async (req: Request, res: Response) => {
-  try {
-    const { progress } = req.body;
+// @route   POST /projects
+// @desc    Create a new project (managers and admins only)
+// @access  Private (manager, admin)
+router.post('/', auth, requireRole('admin', 'manager'), async (req: AuthRequest, res: Response) => {
+    try {
+        let { name, projectNumber, manager, status, deadline, totalManHours, desiredManpower, efficiency } = req.body;
 
-    if (progress < 0 || progress > 100) {
-      return res.status(400).json({ error: 'Progress must be between 0 and 100' });
+        // Trim input fields
+        name = (name || '').trim();
+        projectNumber
+        manager = (manager || '').trim();
+
+        if (!name) {
+            return res.status(400).json({ msg: 'Project name is required' });
+        }
+        if (!projectNumber) {
+            return res.status(400).json({ msg: 'Project number is required' });
+        }
+        if (!manager) {
+            return res.status(400).json({ msg: 'Project manager is required' });
+        }
+
+        const existingProject = await ProjectModel.findOne({ projectNumber }).exec();
+        if (existingProject) {
+            return res.status(400).json({ msg: 'Project number must be unique' });
+        }
+
+        const newProject = new ProjectModel({
+            name,
+            projectNumber,
+            manager,
+            status: status || 'Active',
+            progress: 0,
+            deadline: deadline ? new Date(deadline) : undefined,
+            team: [],
+            phases: [],
+            totalManHours: totalManHours || 0,
+            desiredManpower: desiredManpower || 1,
+            efficiency: efficiency || 0.8,
+            targetDurationWeeks: 0
+        });
+        const savedProject = await newProject.save();
+
+        res.status(201).json({
+            msg: 'Project created successfully',
+            project: savedProject
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Server Error');
     }
-
-    const project = await ProjectModel.findByIdAndUpdate(
-      req.params.id,
-      { progress },
-      { new: true }
-    );
-
-    if (!project) {
-      return res.status(404).json({ error: 'Project not found' });
-    }
-
-    res.json({
-      message: 'Progress updated successfully',
-      project,
-    });
-  } catch (error) {
-    console.error('Error updating progress:', error);
-    res.status(500).json({ error: 'Error updating progress' });
-  }
 });
 
-// Add team member to project
-router.post('/:id/team', async (req: Request, res: Response) => {
-  try {
-    const { name, role } = req.body;
+// @route   PUT /projects/:id
+// @desc    Update a project (managers and admins only)
+// @access  Private (manager, admin)
+router.put('/:id', auth, requireRole('admin', 'manager'), async (req: AuthRequest & { params: { id: string } }, res: Response) => {
+    try {
+        const { id } = req.params;
+        
+        if (!id || id === 'undefined' || !id.match(/^[0-9a-fA-F]{24}$/)) {
+            return res.status(400).json({ msg: 'Invalid project ID format' });
+        }
 
-    const project = await ProjectModel.findById(req.params.id);
-    if (!project) {
-      return res.status(404).json({ error: 'Project not found' });
+        console.log('Updating project ID:', id);
+        console.log('Update data:', req.body);
+
+        const updatedProject = await ProjectModel.findByIdAndUpdate(
+            id,
+            req.body,
+            { new: true, runValidators: true }
+        ).lean().exec();
+
+        if (!updatedProject) {
+            return res.status(404).json({ msg: 'Project not found' });
+        }
+
+        const response = {
+            ...updatedProject,
+            _id: updatedProject._id.toString()
+        };
+
+        console.log('Returning project with _id:', response._id);
+        res.json(response);
+    } catch (err) {
+        console.error('Update error:', err);
+        res.status(400).json({ msg: 'Error updating project' });
     }
-
-    project.team.push({ name, role });
-    await project.save();
-
-    res.json({
-      message: 'Team member added successfully',
-      project,
-    });
-  } catch (error) {
-    console.error('Error adding team member:', error);
-    res.status(500).json({ error: 'Error adding team member' });
-  }
 });
 
-// Remove team member from project
-router.delete('/:id/team/:memberId', async (req: Request, res: Response) => {
-  try {
-    const project = await ProjectModel.findById(req.params.id);
-    if (!project) {
-      return res.status(404).json({ error: 'Project not found' });
+// @route   POST /projects/:id/phases
+// @desc    Add a new phase (managers and admins only)
+// @access  Private (manager, admin)
+router.post('/:id/phases', auth, requireRole('admin', 'manager'), async (req, res) => {
+    try {
+        const project = await ProjectModel.findById(req.params.id).exec();
+        if (!project) {
+            return res.status(404).json({ msg: "Project not Found" });
+        }
+
+        const newPhase = {
+            name: req.body.name,
+            startDate: req.body.startDate,
+            endDate: req.body.endDate,
+            assignedTo: req.body.assignedTo,
+            status: req.body.status || 'Scheduled'
+        };
+
+        project.phases.unshift(newPhase as any);
+        await project.save();
+
+        res.json(project);
+    } catch (err: any) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
     }
-
-    project.team = project.team.filter(
-      (member: any) => member._id?.toString() !== req.params.memberId
-    );
-    await project.save();
-
-    res.json({
-      message: 'Team member removed successfully',
-      project,
-    });
-  } catch (error) {
-    console.error('Error removing team member:', error);
-    res.status(500).json({ error: 'Error removing team member' });
-  }
 });
 
-// Delete project
-router.delete('/:id', async (req: Request, res: Response) => {
-  try {
-    const project = await ProjectModel.findByIdAndDelete(req.params.id);
+// @route   DELETE /projects/:id
+// @desc    Delete a project (admins only)
+// @access  Private (admin)
+router.delete('/:id', auth, requireRole('admin'), async (req: AuthRequest & { params: { id: string } }, res: Response) => {
+    try {
+        const { id } = req.params;
 
-    if (!project) {
-      return res.status(404).json({ error: 'Project not found' });
+        if (!id || id === 'undefined' || !id.match(/^[0-9a-fA-F]{24}$/)) {
+            return res.status(400).json({ msg: 'Invalid project ID format' });
+        }
+        const deletedProject = await ProjectModel.findByIdAndDelete(id).exec();
+        if (!deletedProject) {
+            return res.status(404).json({ msg: 'Project not found' });
+        }
+        res.json({ msg: 'Project deleted successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Server Error');
     }
-
-    res.json({ message: 'Project deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting project:', error);
-    res.status(500).json({ error: 'Error deleting project' });
-  }
 });
-
 export default router;

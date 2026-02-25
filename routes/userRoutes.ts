@@ -32,7 +32,11 @@ router.post('/signup', async (req: Request, res: Response) => {
     
     // Create token
     const token = jwt.sign(
-      { userId: user._id, email: user.email }, 
+      { 
+        userId: user._id,
+        email: user.email,
+        role: user.role
+      }, 
       process.env.JWT_SECRET || 'this_is_a_secret_string_for_my_app',
       { expiresIn: '7d' }
     );
@@ -41,7 +45,7 @@ router.post('/signup', async (req: Request, res: Response) => {
       message: 'User created successfully',
       token,
       user: {
-        id: user._id,
+        _id: user._id.toString(),
         name: user.name,
         email: user.email,
         dateOfBirth: user.dateOfBirth
@@ -70,9 +74,14 @@ router.post('/login', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
     
-    // Create token
+    // Create token with role
     const token = jwt.sign(
-      { userId: user._id, email: user.email },
+      { 
+        userId: user._id,
+        email: user.email,
+        name: user.name,
+        role: user.role || 'viewer'
+      },
       process.env.JWT_SECRET || 'this_is_a_secret_string_for_my_app',
       { expiresIn: '7d' }
     );
@@ -81,10 +90,11 @@ router.post('/login', async (req: Request, res: Response) => {
       message: 'Login successful',
       token,
       user: {
-        id: user._id,
+        _id: user._id.toString(),
         name: user.name,
         email: user.email,
-        dateOfBirth: user.dateOfBirth
+        dateOfBirth: user.dateOfBirth,
+        role: user.role || 'viewer'
       }
     });
   } catch (error) {
