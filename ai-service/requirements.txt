@@ -1,0 +1,9 @@
+pymongo[srv]
+sentence-transformers
+faker
+python-dotenv
+langchain-core
+pandas
+fastapi
+uvicorn[standard]
+pydantic>=2.0

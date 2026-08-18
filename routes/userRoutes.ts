@@ -37,7 +37,7 @@ router.post('/signup', async (req: Request, res: Response) => {
         email: user.email,
         role: user.role
       }, 
-      process.env.JWT_SECRET || 'this_is_a_secret_string_for_my_app',
+      process.env.JWT_SECRET!,
       { expiresIn: '7d' }
     );
     
@@ -82,7 +82,7 @@ router.post('/login', async (req: Request, res: Response) => {
         name: user.name,
         role: user.role || 'viewer'
       },
-      process.env.JWT_SECRET || 'this_is_a_secret_string_for_my_app',
+      process.env.JWT_SECRET!,
       { expiresIn: '7d' }
     );
     
@@ -151,7 +151,7 @@ function authenticateToken(req: AuthRequest, res: Response, next: Function) {
     return res.status(401).json({ error: 'Access token required' });
   }
   
-  jwt.verify(token, process.env.JWT_SECRET || 'this_is_a_secret_string_for_my_app', (err, decoded) => {
+  jwt.verify(token, process.env.JWT_SECRET!, (err, decoded) => {
     if (err || !decoded || typeof decoded !== 'object' || !('userId' in decoded)) {
       return res.status(403).json({ error: 'Invalid or expired token' });
     }

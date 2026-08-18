@@ -42,6 +42,9 @@ export interface Project {
     efficiency?: number;
     targetDurationWeeks?: number;
 
+    // AI inference context
+    projectType?: string;
+
     createdAt?: Date;
     updatedAt?: Date; // Fix: was "UpdatedAt"
 }
@@ -65,13 +68,13 @@ const PhaseSchema = new Schema<Phase>(
         status: {
             type: String,
             enum: ['Planning', 'Active', 'At Risk', 'Delayed', 'Done'],
-            default: 'Planning',
+            
         },
         progress: {type: Number, min: 0, max: 100, default: 0 },    
         assignees: { type: [String], default: [] },
         milestones: {
             type: [{ name: String, date: Date}],
-            default: [], // Fix: was "ddefault"
+            default: [], 
         },
     },
     { _id: true }
@@ -91,7 +94,10 @@ const projectSchema = new Schema<Project>(
         totalManHours: { type: Number, default: 0},
         desiredManpower: { type: Number, default: 1},
         efficiency: { type: Number, default: 0.8},
-        targetDurationWeeks: { type: Number, default: 0, min: 0},   
+        targetDurationWeeks: { type: Number, default: 0, min: 0},
+
+        // AI inference context — stored so the calculator can pass them without re-entry
+        projectType: { type: String },
 
     },
     {timestamps: true } 

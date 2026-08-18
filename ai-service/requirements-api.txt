@@ -1,0 +1,10 @@
+# FastAPI AI microservice runtime deps — Phase 1 + Phase 2 inference.
+fastapi
+uvicorn[standard]
+pydantic>=2.0
+pymongo
+python-dotenv
+# Phase 2 — embedding model for Atlas Vector Search inference
+# torch is installed separately in the Dockerfile (CPU-only) before this file
+# to keep the image lean (~500 MB vs ~2 GB for the CUDA build).
+sentence-transformers

@@ -23,7 +23,7 @@ export default function auth(req: AuthRequest, res: Response, next: NextFunction
     console.log('  - Token extracted (first 30 chars):', token.substring(0, 30) + '...');
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'this_is_a_secret_string_for_my_app') as any;
+        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
         
         console.log('  ✅ Token decoded successfully:');
         console.log('    - userId:', decoded.userId);

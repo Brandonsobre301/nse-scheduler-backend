@@ -1,2 +1,11 @@
 node_modules
+dist
 .env
+.git
+README/
+docs/
+*.md
+eslint.config.ts
+nse-scheduler-frontend/
+seed.js
+scripts/

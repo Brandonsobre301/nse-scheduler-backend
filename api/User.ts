@@ -76,7 +76,7 @@ router.post('/signup', async (req: Request, res: Response) => {
                 name: savedUser.name,
                 role: savedUser.role || 'viewer'
             }, 
-            process.env.JWT_SECRET || 'secret', 
+            process.env.JWT_SECRET!, 
             { expiresIn: '7d' }
         );
 
@@ -137,7 +137,7 @@ router.post('/login', async (req: Request, res: Response) => {
                 name: user.name,
                 role: user.role || 'viewer'
             }, 
-            process.env.JWT_SECRET || 'secret', 
+            process.env.JWT_SECRET!, 
             { expiresIn: '7d' }
         );
 
@@ -163,7 +163,7 @@ router.get('/profile', async (req: Request, res: Response) => {
         const token = req.header('Authorization')?.replace('Bearer ', '');
         if (!token) return res.status(401).json({ message: 'No token, authorization denied' });
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || '') as any;
+        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
         const user = await UserModel.findById(decoded.userId).select('-password').exec();
         if (!user) return res.status(404).json({ message: 'User not found' });
 
@@ -179,7 +179,7 @@ router.put('/profile', async (req: Request, res: Response) => {
         const token = req.header('Authorization')?.replace('Bearer ', '');
         if (!token) return res.status(401).json({ message: 'No token, authorization denied' });
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || '') as any;
+        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
         const { name, dateOfBirth } = req.body;
 
         const updatedUser = await UserModel.findByIdAndUpdate(

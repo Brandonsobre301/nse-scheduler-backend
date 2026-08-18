@@ -1,12 +1,12 @@
 import {Schema, model, Types, HydratedDocument, StringExpressionOperatorReturningBoolean} from 'mongoose';
 
-export type ChangeOrderDocument = 'Pending' | 'Approved' | 'Rejected' | 'Voided';
+export type ChangeOrderStatus = 'Pending' | 'Approved' | 'Rejected' | 'Voided';
 
 export interface ChangeOrder {
     externalId: string;
     projectId: Types.ObjectId;
     projectNumber?: string;
-    status: ChangeOrderDocument;
+    status: ChangeOrderStatus;
     manHoursDelta: number;
     note?: string;
     createdAt: Date;
