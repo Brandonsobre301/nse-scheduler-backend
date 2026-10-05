@@ -1,0 +1,5 @@
+# Dev-only tooling for the ai-service automated test suite.
+# Deliberately excludes pymongo / sentence-transformers: tests/conftest.py
+# stubs those so the suite runs fast with no Atlas cluster or model download.
+pytest
+httpx

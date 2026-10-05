@@ -16,27 +16,43 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 # ---------------------------------------------------------------------------
 # Request schemas
 # ---------------------------------------------------------------------------
 
+# Upper bounds are business sanity limits, not just injection defense — they
+# also stop pathological values (e.g. Infinity-adjacent floats) from reaching
+# the embedding model or the duration/manpower math.
+MAX_TEXT_FIELD_LENGTH = 200
+
+
 class EstimationInputs(BaseModel):
+    # Reject any attribute not explicitly declared below, and trim whitespace
+    # so blank-looking strings (e.g. " ") don't slip past the `or "unknown ..."`
+    # fallbacks in efficiency_agent.py.
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
     totalManHours: float = Field(
         ...,
         gt=0,
+        le=1_000_000,
+        allow_inf_nan=False,
         description="Total man-hours bid on the project (MH)",
     )
     desiredManpower: Optional[int] = Field(
         default=None,
         gt=0,
+        le=10_000,
         description="Desired crew size — required for 'duration' mode (MP)",
     )
     targetDurationWeeks: Optional[float] = Field(
         default=None,
         gt=0,
+        le=1_000,
+        allow_inf_nan=False,
         description="Hard deadline in weeks — required for 'manpower' mode (TD)",
     )
     # Optional in Phase 2: when omitted the LangChain efficiency agent infers
@@ -45,30 +61,39 @@ class EstimationInputs(BaseModel):
         default=None,
         gt=0,
         le=2.0,
+        allow_inf_nan=False,
         description=(
             "Assumed efficiency as a decimal (e.g. 0.85 = 85%). "
             "If omitted, the AI agent infers it from historical project data."
         ),
     )
-    # Contextual fields used by the efficiency agent when assumedEfficiency is None
+    # Contextual fields used by the efficiency agent when assumedEfficiency is None.
+    # Length-capped: these are embedded by all-MiniLM-L6-v2 on every inference
+    # request, so unbounded strings are a direct CPU/DoS amplification vector.
     projectType: Optional[str] = Field(
         default=None,
+        max_length=MAX_TEXT_FIELD_LENGTH,
         description="Type of project — improves AI efficiency inference accuracy",
     )
     supervisor: Optional[str] = Field(
         default=None,
+        max_length=MAX_TEXT_FIELD_LENGTH,
         description="Supervisor name — improves AI efficiency inference accuracy",
     )
     jobName: Optional[str] = Field(
         default=None,
+        max_length=MAX_TEXT_FIELD_LENGTH,
         description="Job name — optional additional signal for AI inference",
     )
 
 
 class EstimationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
     projectId: str = Field(
         ...,
         min_length=1,
+        max_length=100,
         description="Identifier of the project being estimated",
     )
     calculationMode: Literal["duration", "manpower"] = Field(

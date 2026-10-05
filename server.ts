@@ -20,7 +20,7 @@ if (!process.env.JWT_SECRET) {
 }
 
 // Middleware 
-app.use(express.json());
+app.use(express.json({ limit: '100kb' })); // explicit cap — protects the estimate route's embedding call from oversized payloads
 const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000')
     .split(',')
     .map(o => o.trim());

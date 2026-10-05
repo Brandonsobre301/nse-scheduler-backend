@@ -9,7 +9,7 @@ const sampleProjects = [
         manager: 'Gary Golden',
         status: 'Active',
         progress: 65,
-        deadline: new Date('2025-11-01'),
+        deadline: new Date('2026-11-01'),
         totalManHours: 2000,
         desiredManPower: 6,
         efficiency: 0.60
@@ -20,7 +20,7 @@ const sampleProjects = [
         manager: 'John Dennis',
         status: 'Active',
         progress: 55,
-        deadline: new Date('2025-11-01'),
+        deadline: new Date('2026-11-01'),
         totalManHours: 1500,
         desiredManPower: 4,
         efficiency: 0.75

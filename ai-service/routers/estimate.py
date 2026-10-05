@@ -8,11 +8,16 @@ while letting FastAPI/Pydantic handle type validation errors as HTTP 422.
 Phase 2: when assumedEfficiency is omitted, the efficiency agent queries
 MongoDB Atlas Vector Search to infer it from similar historical projects.
 
-Internal service only — no auth here. Authentication is enforced by the
-Node.js backend before it proxies requests to this service.
+Docker network isolation (app-net, port 8000 not published) is the primary
+boundary control, but `verify_internal_key` is a defense-in-depth check in
+case this service is ever reachable from elsewhere on the network — it does
+NOT replace the Node.js JWT auth enforced before requests reach here.
 """
 
-from fastapi import APIRouter
+import logging
+import os
+
+from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import JSONResponse
 
 from models.estimation import (
@@ -24,14 +29,28 @@ from models.estimation import (
 from services.estimation_engine import calculate_duration, calculate_manpower
 from services.efficiency_agent import infer_efficiency
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
+
+INTERNAL_API_KEY = os.getenv("AI_SERVICE_API_KEY")
+
+
+async def verify_internal_key(x_internal_api_key: str | None = Header(default=None)) -> None:
+    if not INTERNAL_API_KEY:
+        # Fail closed rather than silently accepting unauthenticated traffic.
+        raise HTTPException(status_code=503, detail="Service misconfigured")
+    if x_internal_api_key != INTERNAL_API_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
 
 @router.post(
     "/estimate",
     response_model=EstimationResponse,
+    dependencies=[Depends(verify_internal_key)],
     responses={
         400: {"model": ErrorDetail, "description": "Missing required inputs for selected mode"},
+        401: {"description": "Missing or invalid internal service credential"},
         422: {"description": "Request body failed schema validation"},
     },
     summary="Run a labor estimation calculation",
@@ -120,6 +139,15 @@ async def estimate(request: EstimationRequest) -> EstimationResponse:
         return JSONResponse(
             status_code=400,
             content=ErrorDetail(message=str(exc)).model_dump(),
+        )
+    except Exception:
+        # Never leak stack traces, DB errors, or connection strings to the client.
+        logger.exception("Unhandled error computing estimate for project %s", request.projectId)
+        return JSONResponse(
+            status_code=500,
+            content=ErrorDetail(
+                message="An internal error occurred while processing the estimate."
+            ).model_dump(),
         )
 
     return EstimationResponse(

@@ -16,6 +16,7 @@ yarn-error.log*
 # OS files
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # React build (if mistakenly copied here)
 build/
@@ -26,3 +27,16 @@ coverage/
 
 # Local Mongo dumps
 dump/
+
+# Visual Studio
+.vs/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+venv/
+.venv/
+
+# Sensitive/local business data
+2018-Present job hours - for brandon.csv
